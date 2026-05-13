@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUDŌ — Mind Sharpener</title>
+<meta name="description" content="A premium Sudoku experience with AI coaching, daily challenges, and global leaderboard.">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0a0a12;--bg2:#111120;--bg3:#1a1a2e;--card:#13131f;
+    --border:#2a2a45;--border2:#3a3a5c;
+    --text:#e8e4d9;--text2:#8a8aa8;--text3:#5a5a72;
+    --gold:#c9a84c;--gold2:#e8c878;--gold-bg:rgba(201,168,76,.12);
+    --accent:#5b8dee;--accent-bg:rgba(91,141,238,.12);
+    --error:#e05c5c;--error-bg:rgba(224,92,92,.15);
+    --success:#4ecb71;
+    --cell:#13131f;--cell-hover:#1e1e35;--cell-sel:#1e2d50;
+    --cell-rel:#161626;--cell-lock:#0f0f1c;--cell-err:#2d1515;
+  }
+  body.light{
+    --bg:#f5f4ef;--bg2:#ede9df;--bg3:#e4dfd3;--card:#ffffff;
+    --border:#d8d3c8;--border2:#c8c3b8;
+    --text:#1a1a2e;--text2:#6a6580;--text3:#9a95a8;
+    --gold:#b8862e;--gold2:#c8962e;--gold-bg:rgba(184,134,46,.1);
+    --accent:#3a6dce;--accent-bg:rgba(58,109,206,.1);
+    --error:#c04040;--error-bg:rgba(192,64,64,.1);
+    --cell:#fff;--cell-hover:#f0ece0;--cell-sel:#dce8fc;
+    --cell-rel:#f7f5ee;--cell-lock:#f2eee5;--cell-err:#fce8e8;
+  }
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh;transition:background .3s,color .3s}
+
+  /* LAYOUT */
+  #app{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+  header{display:flex;justify-content:space-between;align-items:center;padding-bottom:20px;border-bottom:1px solid var(--border);margin-bottom:24px}
+  .logo{font-family:Georgia,serif;font-size:26px;font-weight:400;color:var(--text);letter-spacing:-.02em}
+  .logo sup{font-size:12px;color:var(--gold);letter-spacing:.15em;text-transform:uppercase;vertical-align:middle;margin-left:8px;font-family:-apple-system,sans-serif;font-weight:400}
+  .header-right{display:flex;gap:8px;align-items:center}
+  .main{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+  .left{flex:1;min-width:280px;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .right{width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:10px}
+
+  /* PILLS & BUTTONS */
+  .pill{padding:4px 12px;border-radius:20px;border:.5px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;transition:all .15s;font-family:inherit}
+  .pill:hover{border-color:var(--border2);color:var(--text)}
+  .pill.on{background:var(--gold-bg);color:var(--gold);border-color:var(--gold)}
+  .icon-btn{width:34px;height:34px;border-radius:8px;border:.5px solid var(--border);background:var(--bg3);color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+  .icon-btn:hover{border-color:var(--border2);color:var(--text)}
+  .icon-btn.on{border-color:var(--gold);background:var(--gold-bg);color:var(--gold)}
+  .icon-btn:disabled{opacity:.3;cursor:default}
+  .pro-badge{padding:4px 10px;border-radius:16px;border:.5px solid var(--gold);background:var(--gold-bg);color:var(--gold);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit}
+
+  /* GRID */
+  .grid{display:grid;grid-template-columns:repeat(9,1fr);border:2px solid var(--text);border-radius:4px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.3);width:min(420px,calc(100vw - 260px))}
+  .cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;font-size:clamp(12px,2.2vw,20px);font-weight:500;border-right:.5px solid var(--border);border-bottom:.5px solid var(--border);transition:background .1s;user-select:none;background:var(--cell)}
+  .cell.br{border-right:1.5px solid var(--text2)}
+  .cell.bb{border-bottom:1.5px solid var(--text2)}
+  .cell.locked{color:var(--text);background:var(--cell-lock)}
+  .cell.user{color:var(--accent)}
+  .cell.err{color:var(--error)!important;background:var(--cell-err)!important}
+  .cell.sel{background:var(--cell-sel)}
+  .cell.rel{background:var(--cell-rel)}
+  .cell.same{background:var(--gold-bg)}
+  .cell.sel::after{content:'';position:absolute;inset:0;border:2px solid var(--gold);pointer-events:none;box-sizing:border-box}
+  .notes-grid{display:grid;grid-template-columns:repeat(3,1fr);width:90%;height:90%}
+  .note{font-size:clamp(5px,.8vw,8px);display:flex;align-items:center;justify-content:center;color:var(--gold);line-height:1}
+
+  /* ACTION BUTTONS */
+  .btns{display:flex;gap:8px}
+
+  /* NUMPAD */
+  .numpad{display:grid;grid-template-columns:repeat(9,1fr);gap:5px;width:min(420px,calc(100vw - 260px))}
+  .num{aspect-ratio:1;border-radius:8px;border:.5px solid var(--border);background:var(--bg3);color:var(--text);font-size:clamp(13px,1.8vw,19px);font-weight:500;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .1s;font-family:inherit}
+  .num:hover{background:var(--bg2);border-color:var(--border2)}
+  .num sub{font-size:8px;color:var(--text3)}
+  .num.done{opacity:.2;cursor:default}
+
+  /* STATS */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .stat{background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center}
+  .stat-val{font-size:22px;font-weight:400;font-family:Georgia,serif;color:var(--gold)}
+  .stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+
+  /* PANEL */
+  .tabs{display:flex;gap:4px;background:var(--bg3);border-radius:10px;padding:3px}
+  .tab{flex:1;padding:6px 4px;border-radius:7px;border:none;background:transparent;color:var(--text2);font-size:11px;cursor:pointer;transition:all .15s;font-family:inherit}
+  .tab.on{background:var(--card);color:var(--text);font-weight:500;border:.5px solid var(--border)}
+  .panel{background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:200px}
+  .ai-btn{padding:10px;border-radius:9px;border:none;background:var(--gold);color:#000;font-weight:500;font-size:13px;cursor:pointer;transition:all .2s;font-family:inherit;width:100%}
+  .ai-btn:disabled{opacity:.5;cursor:default}
+  .ai-msg{background:var(--bg3);border-radius:9px;padding:10px;font-size:12px;line-height:1.65;border-left:3px solid var(--gold)}
+  .lb-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:var(--bg3);font-size:11px}
+  .lb-row.top{background:var(--gold-bg)}
+
+  /* PROGRESS */
+  .progress{background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:10px}
+  .bar-bg{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:6px}
+  .bar{height:5px;background:var(--gold);border-radius:3px;transition:width .3s}
+
+  /* MODALS */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);align-items:center;justify-content:center;z-index:100}
+  .overlay.show{display:flex}
+  .modal{background:var(--bg2);border:.5px solid var(--border);border-radius:20px;padding:28px;max-width:340px;width:90%;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+  input.inp{display:block;width:100%;padding:9px 12px;border-radius:9px;border:.5px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;margin-bottom:8px;font-family:inherit;outline:none}
+  input.inp:focus{border-color:var(--gold)}
+  .btn-row{display:flex;gap:8px;margin-top:4px}
+  .cta{padding:10px 16px;border-radius:9px;border:none;font-weight:500;font-size:14px;cursor:pointer;flex:1;font-family:inherit}
+  .cta.pri{background:var(--gold);color:#000}
+  .cta.sec{background:var(--bg3);color:var(--text2);border:.5px solid var(--border)}
+  .diff-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .daily-label{font-size:12px;color:var(--text2);padding:4px 0}
+
+  /* CONFETTI */
+  @keyframes fall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+  .confetti{position:fixed;top:0;width:8px;height:8px;border-radius:2px;animation:fall linear forwards;pointer-events:none;z-index:200}
+
+  @media(max-width:600px){.right{width:100%}.grid{width:min(340px,calc(100vw - 32px))}.numpad{width:min(340px,calc(100vw - 32px))}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">SUDŌ <sup>Mind Sharpener</sup></div>
+    <div class="header-right">
+      <button class="pill on" id="btn-practice" onclick="App.setMode('practice')">Practice</button>
+      <button class="pill" id="btn-daily" onclick="App.setMode('daily')">📅 Daily</button>
+      <button class="pro-badge" onclick="document.getElementById('overlay-pro').classList.add('show')">👑 Pro</button>
+      <button class="icon-btn" id="theme-btn" onclick="App.toggleTheme()" title="Toggle theme">☀️</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="left">
+      <div class="diff-row" id="diff-row">
+        <button class="pill" id="d-easy" onclick="App.setDiff('easy')">Easy</button>
+        <button class="pill on" id="d-medium" onclick="App.setDiff('medium')">Medium</button>
+        <button class="pill" id="d-hard" onclick="App.setDiff('hard')">Hard</button>
+        <button class="pill" id="d-expert" onclick="App.setDiff('expert')">Expert</button>
+        <button class="pill" onclick="App.newGame()" style="margin-left:4px">↺ New</button>
+      </div>
+      <div class="daily-label" id="daily-label" style="display:none"></div>
+
+      <div class="grid" id="grid"></div>
+
+      <div class="btns">
+        <button class="icon-btn" onclick="App.undo()" title="Undo (Ctrl+Z)">↩</button>
+        <button class="icon-btn" id="btn-notes" onclick="App.toggleNotes()" title="Notes mode">✏️</button>
+        <button class="icon-btn" onclick="App.erase()" title="Erase">🗑️</button>
+        <button class="icon-btn" id="btn-hint" onclick="App.hint()" title="Hint">💡</button>
+      </div>
+
+      <div class="numpad" id="numpad"></div>
+    </div>
+
+    <div class="right">
+      <div class="stats">
+        <div class="stat"><div class="stat-val" id="s-time">0:00</div><div class="stat-lbl">Time</div></div>
+        <div class="stat"><div class="stat-val" id="s-err">0</div><div class="stat-lbl">Errors</div></div>
+        <div class="stat"><div class="stat-val" id="s-hint">3</div><div class="stat-lbl">Hints</div></div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab on" id="tab-ai" onclick="App.setPanel('ai')">🤖 AI Coach</button>
+        <button class="tab" id="tab-lb" onclick="App.setPanel('lb')">🏆 Scores</button>
+      </div>
+
+      <div class="panel" id="panel-ai">
+        <div style="font-size:12px;color:var(--text2);line-height:1.6">Stuck? Get a hint that teaches strategy, not just the answer.</div>
+        <div style="display:flex;gap:8px">
+          <input class="inp" id="ai-key" placeholder="Paste Anthropic API key" style="margin:0;flex:1;font-size:11px" />
+        </div>
+        <button class="ai-btn" id="ai-btn" onclick="App.getAI()">✨ Get AI Hint</button>
+        <div id="ai-out" style="display:none" class="ai-msg"></div>
+        <div id="ai-strats" style="font-size:11px;color:var(--text3);line-height:1.9">
+          Strategies to learn:<br>
+          · Naked Singles<br>
+          · Hidden Singles<br>
+          · Pointing Pairs<br>
+          · X-Wing<br>
+          · Swordfish
+        </div>
+      </div>
+
+      <div class="panel" id="panel-lb" style="display:none">
+        <div style="font-size:13px;font-weight:500">🏆 Leaderboard</div>
+        <div id="lb-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+      <div class="progress">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
+          <span>Progress</span><span id="prog-txt">0/81</span>
+        </div>
+        <div class="bar-bg"><div class="bar" id="prog-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPLETE MODAL -->
+<div class="overlay" id="overlay-complete">
+  <div class="modal">
+    <div style="font-size:40px;margin-bottom:6px">🎉</div>
+    <div style="font-family:Georgia,serif;font-size:26px;margin-bottom:4px">Solved!</div>
+    <div id="cm-stats" style="font-size:13px;color:var(--text2);margin-bottom:18px"></div>
+    <input class="inp" id="cm-name" placeholder="Your name" />
+    <input class="inp" id="cm-city" placeholder="Your city (e.g. Almaty)" />
+    <div class="btn-row">
+      <button class="cta sec" onclick="App.closeComplete()">Skip</button>
+      <button class="cta pri" onclick="App.submitScore()">🏆 Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRO MODAL -->
+<div class="overlay" id="overlay-pro">
+  <div class="modal">
+    <div style="font-size:36px;margin-bottom:4px">👑</div>
+    <div style="font-family:Georgia,serif;font-size:24px;color:var(--gold);margin-bottom:4px">SUDŌ Pro</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:18px">Unlock the full experience</div>
+    <div style="text-align:left;font-size:13px;line-height:2.2;margin-bottom:18px">
+      🎨 Premium themes (Midnight, Ocean, Forest)<br>
+      💡 Unlimited hints<br>
+      📊 Advanced stats &amp; streaks<br>
+      🤖 AI Coach without API key<br>
+      🏅 Pro badge on leaderboard<br>
+      🚫 No interruptions
+    </div>
+    <div class="btn-row">
+      <button class="cta sec" onclick="document.getElementById('overlay-pro').classList.remove('show')">Later</button>
+      <button class="cta pri">Upgrade — $2.99/mo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SUDOKU ENGINE ─────────────────────────────────────────────
+function rng(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function shufl(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function ok(g,r,c,n){for(let i=0;i<9;i++){if(i!==c&&g[r][i]===n)return false;if(i!==r&&g[i][c]===n)return false}const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;for(let a=br;a<br+3;a++)for(let b=bc;b<bc+3;b++)if((a!==r||b!==c)&&g[a][b]===n)return false;return true}
+function solve(g,rf){for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(g[r][c]===0){let ns=[1,2,3,4,5,6,7,8,9];if(rf)shufl(ns,rf);for(let n of ns){if(ok(g,r,c,n)){g[r][c]=n;if(solve(g,rf))return true;g[r][c]=0}}return false}return true}
+function makePuzzle(diff,seed){
+  const r=rng(seed!=null?seed:Math.floor(Math.random()*1e9));
+  const sol=Array.from({length:9},()=>Array(9).fill(0));solve(sol,r);
+  const puz=sol.map(x=>[...x]);
+  const rm={easy:34,medium:44,hard:51,expert:57}[diff]||44;
+  let cells=[];for(let a=0;a<9;a++)for(let b=0;b<9;b++)cells.push([a,b]);
+  shufl(cells,r);for(let i=0;i<rm;i++)puz[cells[i][0]][cells[i][1]]=0;
+  return{puzzle:puz,solved:sol}
+}
+function dailySeed(){const d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate()}
+function fmt(s){return Math.floor(s/60)+':'+(s%60+'').padStart(2,'0')}
+function conflicts(b){const cf=Array.from({length:9},()=>Array(9).fill(false));for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(b[r][c]!==0&&!ok(b,r,c,b[r][c]))cf[r][c]=true;return cf}
+
+// ── APP ───────────────────────────────────────────────────────
+const App={
+  board:null,solution:null,locked:null,notes:null,selected:null,
+  notesMode:false,hintsLeft:3,mistakes:0,complete:false,history:[],
+  time:0,running:false,mode:'practice',diff:'medium',aiLoading:false,
+  scores:[],panel:'ai',timerID:null,dark:true,
+
+  init(){
+    this.loadScores();this.newGame();this.renderNumpad();this.bindKeys();
+    const saved=localStorage.getItem('sudo-theme');
+    if(saved==='light'){this.dark=false;document.body.classList.add('light');document.getElementById('theme-btn').textContent='🌙'}
+  },
+
+  newGame(d,m){
+    d=d||this.diff;m=m||this.mode;
+    const{puzzle,solved}=m==='daily'?makePuzzle('hard',dailySeed()):makePuzzle(d);
+    this.board=puzzle.map(r=>[...r]);this.solution=solved;
+    this.locked=puzzle.map(r=>r.map(v=>v!==0));
+    this.notes=Array.from({length:9},()=>Array.from({length:9},()=>new Set()));
+    this.selected=null;this.mistakes=0;this.complete=false;this.hintsLeft=3;
+    this.history=[];this.time=0;clearInterval(this.timerID);this.running=true;
+    this.timerID=setInterval(()=>{if(this.running){this.time++;document.getElementById('s-time').textContent=fmt(this.time)}},1000);
+    document.getElementById('s-err').textContent=0;
+    document.getElementById('s-hint').textContent=3;
+    document.getElementById('btn-hint').disabled=false;
+    document.getElementById('ai-out').style.display='none';
+    document.getElementById('overlay-complete').classList.remove('show');
+    this.renderGrid();this.renderNumpad();this.updateProgress();
+  },
+
+  setMode(m){
+    this.mode=m;
+    document.getElementById('btn-practice').classList.toggle('on',m==='practice');
+    document.getElementById('btn-daily').classList.toggle('on',m==='daily');
+    document.getElementById('diff-row').style.display=m==='daily'?'none':'flex';
+    const dl=document.getElementById('daily-label');
+    if(m==='daily'){dl.style.display='block';dl.textContent='📅 '+new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}
+    else dl.style.display='none';
+    this.newGame(this.diff,m);
+  },
+
+  setDiff(d){
+    this.diff=d;
+    ['easy','medium','hard','expert'].forEach(x=>document.getElementById('d-'+x).classList.toggle('on',x===d));
+    if(this.mode==='practice')this.newGame(d);
+  },
+
+  setPanel(p){
+    this.panel=p;
+    document.getElementById('tab-ai').classList.toggle('on',p==='ai');
+    document.getElementById('tab-lb').classList.toggle('on',p==='lb');
+    document.getElementById('panel-ai').style.display=p==='ai'?'flex':'none';
+    document.getElementById('panel-lb').style.display=p==='lb'?'flex':'none';
+    if(p==='lb')this.renderLB();
+  },
+
+  toggleTheme(){
+    this.dark=!this.dark;document.body.classList.toggle('light',!this.dark);
+    document.getElementById('theme-btn').textContent=this.dark?'☀️':'🌙';
+    localStorage.setItem('sudo-theme',this.dark?'dark':'light');
+  },
+
+  renderGrid(){
+    const g=document.getElementById('grid');g.innerHTML='';
+    const cf=conflicts(this.board);
+    const sr=this.selected?.r,sc=this.selected?.c;
+    const sv=sr!=null?this.board[sr][sc]:0;
+    for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+      const el=document.createElement('div');el.className='cell';
+      if((c+1)%3===0&&c<8)el.classList.add('br');
+      if((r+1)%3===0&&r<8)el.classList.add('bb');
+      if(cf[r][c])el.classList.add('err');
+      else if(sr===r&&sc===c)el.classList.add('sel');
+      else if(sr!=null&&(sr===r||sc===c||(Math.floor(sr/3)===Math.floor(r/3)&&Math.floor(sc/3)===Math.floor(c/3))))el.classList.add('rel');
+      if(sv&&sv===this.board[r][c]&&!(sr===r&&sc===c)&&!cf[r][c])el.classList.add('same');
+      if(this.locked[r][c])el.classList.add('locked');
+      else if(this.board[r][c]!==0&&!cf[r][c])el.classList.add('user');
+      const v=this.board[r][c],ns=this.notes[r][c];
+      if(v!==0){el.textContent=v}
+      else if(ns.size>0){
+        const nd=document.createElement('div');nd.className='notes-grid';
+        for(let n=1;n<=9;n++){const s=document.createElement('div');s.className='note';s.textContent=ns.has(n)?n:'';nd.appendChild(s)}
+        el.appendChild(nd);
+      }
+      el.addEventListener('click',()=>{this.selected={r,c};this.renderGrid()});
+      g.appendChild(el);
+    }
+  },
+
+  renderNumpad(){
+    const p=document.getElementById('numpad');p.innerHTML='';
+    const counts=Array(10).fill(0);
+    if(this.board)this.board.flat().forEach(v=>{if(v)counts[v]++});
+    for(let n=1;n<=9;n++){
+      const b=document.createElement('button');b.className='num'+(counts[n]>=9?' done':'');
+      b.innerHTML=n+'<sub>'+(9-counts[n])+'</sub>';b.disabled=counts[n]>=9;
+      b.addEventListener('click',()=>this.input(n));p.appendChild(b);
+    }
+  },
+
+  updateProgress(){
+    if(!this.board)return;
+    const filled=this.board.flat().filter(v=>v!==0).length;
+    document.getElementById('prog-txt').textContent=filled+'/81';
+    document.getElementById('prog-bar').style.width=Math.round(filled/81*100)+'%';
+  },
+
+  input(n){
+    if(!this.selected||this.complete)return;
+    const{r,c}=this.selected;if(this.locked[r][c])return;
+    this.history.push({board:this.board.map(x=>[...x]),notes:this.notes.map(x=>x.map(s=>new Set(s)))});
+    if(this.notesMode){if(this.notes[r][c].has(n))this.notes[r][c].delete(n);else this.notes[r][c].add(n);}
+    else{
+      const prev=this.board[r][c];this.board[r][c]=prev===n?0:n;
+      if(prev!==n&&n!==0&&this.solution[r][c]!==n){this.mistakes++;document.getElementById('s-err').textContent=this.mistakes}
+      this.notes[r][c]=new Set();
+    }
+    this.renderGrid();this.renderNumpad();this.updateProgress();
+    if(!this.notesMode&&this.board[r][c]!==0&&this.checkWin()){this.running=false;this.complete=true;setTimeout(()=>this.showComplete(),600)}
+  },
+
+  erase(){
+    if(!this.selected||this.complete)return;const{r,c}=this.selected;if(this.locked[r][c])return;
+    this.history.push({board:this.board.map(x=>[...x]),notes:this.notes.map(x=>x.map(s=>new Set(s)))});
+    this.board[r][c]=0;this.notes[r][c]=new Set();this.renderGrid();this.renderNumpad();this.updateProgress();
+  },
+
+  undo(){
+    if(!this.history.length)return;const h=this.history.pop();this.board=h.board;this.notes=h.notes;
+    this.renderGrid();this.renderNumpad();this.updateProgress();
+  },
+
+  toggleNotes(){this.notesMode=!this.notesMode;document.getElementById('btn-notes').classList.toggle('on',this.notesMode)},
+
+  hint(){
+    if(this.hintsLeft<=0||!this.selected||this.complete)return;
+    const{r,c}=this.selected;if(this.locked[r][c]||this.board[r][c]!==0)return;
+    this.board[r][c]=this.solution[r][c];this.notes[r][c]=new Set();
+    this.hintsLeft--;document.getElementById('s-hint').textContent=this.hintsLeft;
+    if(this.hintsLeft===0)document.getElementById('btn-hint').disabled=true;
+    this.renderGrid();this.renderNumpad();this.updateProgress();
+    if(this.checkWin()){this.running=false;this.complete=true;setTimeout(()=>this.showComplete(),600)}
+  },
+
+  checkWin(){for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(this.board[r][c]!==this.solution[r][c])return false;return true},
+
+  async getAI(){
+    if(this.aiLoading)return;
+    const key=document.getElementById('ai-key').value.trim();
+    if(!key){document.getElementById('ai-out').textContent='Paste your Anthropic API key above to use AI Coach.';document.getElementById('ai-out').style.display='block';return}
+    this.aiLoading=true;const btn=document.getElementById('ai-btn');btn.disabled=true;btn.textContent='Thinking...';
+    document.getElementById('ai-strats').style.display='none';
+    const bs=this.board.map(r=>r.join(' ')).join('\n');
+    try{
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-opus-4-5',max_tokens:200,
+          messages:[{role:'user',content:'You are a Sudoku coach. Current board (0=empty):\n\n'+bs+'\n\nGive ONE short hint (2-3 sentences max). Name a specific cell by row/column. Teach the strategy, not the answer. Be encouraging.'}]})});
+      const d=await res.json();
+      const out=document.getElementById('ai-out');out.textContent=d.content?.[0]?.text||'Look for rows or columns that are nearly complete!';out.style.display='block';
+    }catch(e){
+      document.getElementById('ai-out').textContent='Look for a row, column, or 3×3 box that is almost complete — those cells are easiest to fill!';
+      document.getElementById('ai-out').style.display='block';
+    }
+    btn.textContent='✨ Get AI Hint';btn.disabled=false;this.aiLoading=false;
+  },
+
+  loadScores(){try{const s=localStorage.getItem('sudo-lb-v2');if(s)this.scores=JSON.parse(s)}catch(e){this.scores=[]}this.renderLB()},
+
+  renderLB(){
+    const el=document.getElementById('lb-list');
+    if(!this.scores.length){el.innerHTML='<div style="color:var(--text3);text-align:center;padding:16px;font-size:12px">No scores yet!<br>Complete a puzzle to appear here.</div>';return}
+    const medals=['🥇','🥈','🥉'];
+    el.innerHTML=this.scores.slice(0,8).map((s,i)=>`
+      <div class="lb-row${i===0?' top':''}">
+        <span style="width:18px">${medals[i]||i+1}</span>
+        <div style="flex:1"><div style="font-weight:500">${s.name}</div><div style="color:var(--text3)">📍 ${s.city}</div></div>
+        <div style="text-align:right"><div style="font-weight:500;color:var(--gold)">${fmt(s.time)}</div><div style="color:var(--text3);text-transform:capitalize">${s.diff}</div></div>
+      </div>`).join('');
+  },
+
+  showComplete(){
+    this.confetti();
+    document.getElementById('cm-stats').textContent='Solved in '+fmt(this.time)+' · '+this.mistakes+' mistake'+(this.mistakes!==1?'s':'');
+    document.getElementById('overlay-complete').classList.add('show');
+  },
+
+  closeComplete(){document.getElementById('overlay-complete').classList.remove('show')},
+
+  submitScore(){
+    const name=document.getElementById('cm-name').value.trim();if(!name)return;
+    const entry={name,city:document.getElementById('cm-city').value.trim()||'Unknown',time:this.time,mistakes:this.mistakes,diff:this.mode==='daily'?'daily':this.diff};
+    const ns=[...this.scores,entry].sort((a,b)=>a.time-b.time).slice(0,30);
+    this.scores=ns;try{localStorage.setItem('sudo-lb-v2',JSON.stringify(ns))}catch(e){}
+    this.closeComplete();this.setPanel('lb');
+  },
+
+  confetti(){
+    const colors=['#c9a84c','#5b8dee','#4ecb71','#e05c5c','#e8c878'];
+    for(let i=0;i<40;i++){
+      const el=document.createElement('div');el.className='confetti';
+      el.style.cssText=`left:${Math.random()*100}vw;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${1+Math.random()*2}s;animation-delay:${Math.random()*.5}s`;
+      document.body.appendChild(el);setTimeout(()=>el.remove(),3000);
+    }
+  },
+
+  bindKeys(){
+    document.addEventListener('keydown',e=>{
+      if(['INPUT'].includes(e.target.tagName))return;
+      if(e.key>='1'&&e.key<='9')this.input(parseInt(e.key));
+      else if(e.key==='Backspace'||e.key==='Delete')this.erase();
+      else if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();this.undo()}
+      else if(e.key==='n'||e.key==='N')this.toggleNotes();
+      else if(this.selected){
+        const{r,c}=this.selected;
+        if(e.key==='ArrowUp'&&r>0)this.selected={r:r-1,c};
+        else if(e.key==='ArrowDown'&&r<8)this.selected={r:r+1,c};
+        else if(e.key==='ArrowLeft'&&c>0)this.selected={r,c:c-1};
+        else if(e.key==='ArrowRight'&&c<8)this.selected={r,c:c+1};
+        this.renderGrid();
+      }
+    });
+    document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show')}));
+  }
+};
+
+App.init();
+</script>
+</body>
+</html>
